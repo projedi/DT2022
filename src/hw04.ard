@@ -280,7 +280,7 @@
 -- c. Используя эти две конструкции, легко определить J.
 
 \func transport'' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
-  => Jalt (\lam x x' xx' => {?}) (\lam x => {?}) {?}
+  => Jalt (\lam x x' xx' => B x -> B x') (\lam _ x => x) p b
 
 \func sigma-contr {A : \Type} {a : A} (p : \Sigma (x : A) (a = x)) : (a,idp) = {\Sigma (x : A) (a = x)} p
   => Jalt (\lam x x' xx' => (x, idp) = {\Sigma (y : A) (x = y)} (x', xx')) (\lam x => idp) p.2
