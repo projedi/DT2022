@@ -85,15 +85,32 @@
 \record State (S A : \Type)
   | state : S -> \Sigma S A
 
--- Cannot solve equation \lh <= constant
-\instance StateMonad (S : \Type) : Monad (State S) => {?}
--- Cannot solve equation \lh <= constant
-\instance StateMonad' (S : \Type) : Monad (\lam a => State S a) => {?}
+\instance StateMonad (S : \Set) : Monad (State S)
+  | return {A : \Set} (x : A) : State S A => \new State {
+    | state => \lam s => (s, x)
+  }
+  | >>= {A B : \Set} (x : State S A) (f : A -> State S B) : State S B => \new State {
+    | state => \lam s => \let
+      | (s', a) => x.state s
+      | sb : State S B => f a
+      \in sb.state s'
+  }
+  | id-left {A B : \Set} (a : A) (f : A -> State S B) : (return a >>= f) = f a => idp
+  | id-right {A : \Set} (a : State S A) : (a >>= return) = a => idp
+  | >>=-assoc {A B C : \Set} (a : State S A) (b : A -> State S B) (c : B -> State S C) : ((a >>= b) >>= c) = (a >>= \lam x => b x >>= c) => idp
 
 \data State' (S A : \Type)
   | state' (S -> \Sigma S A)
 
--- Cannot solve equation \lh <= constant
-\instance State'Monad (S : \Type) : Monad (State' S) => {?}
--- Cannot solve equation \lh <= constant
-\instance State'Monad' (S : \Type) : Monad (\lam a => State' S a) => {?}
+\instance State'Monad (S : \Set) : Monad (State' S)
+  | return {A : \Set} (x : A) : State' S A => state' (\lam s => (s, x))
+  | >>= {A B : \Set} (x : State' S A) (f : A -> State' S B) : State' S B \elim x {
+    | state' x => state' (\lam s => \let
+      | (s', a) => x s
+      \in \case f a \with {
+        | state' sb => sb s'
+      } )
+  }
+  | id-left {A B : \Set} (a : A) (f : A -> State' S B) : (return a >>= f) = f a => {?}
+  | id-right {A : \Set} (a : State' S A) : (a >>= return) = a => {?}
+  | >>=-assoc {A B C : \Set} (a : State' S A) (b : A -> State' S B) (c : B -> State' S C) : ((a >>= b) >>= c) = (a >>= \lam x => b x >>= c) => {?}
