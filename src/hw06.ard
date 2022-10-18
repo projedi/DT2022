@@ -102,15 +102,25 @@
 \data State' (S A : \Type)
   | state' (S -> \Sigma S A)
 
+\func runState' {S A : \Type} (x : State' S A) (s : S) : \Sigma S A \elim x
+  | state' x => x s
+
+\func etaState' {S A : \Type} (x : State' S A) : x = state' (runState' x) \elim x
+  | state' x => idp
+
 \instance State'Monad (S : \Set) : Monad (State' S)
   | return {A : \Set} (x : A) : State' S A => state' (\lam s => (s, x))
-  | >>= {A B : \Set} (x : State' S A) (f : A -> State' S B) : State' S B \elim x {
-    | state' x => state' (\lam s => \let
-      | (s', a) => x s
-      \in \case f a \with {
-        | state' sb => sb s'
-      } )
-  }
-  | id-left {A B : \Set} (a : A) (f : A -> State' S B) : (return a >>= f) = f a => {?}
-  | id-right {A : \Set} (a : State' S A) : (a >>= return) = a => {?}
-  | >>=-assoc {A B C : \Set} (a : State' S A) (b : A -> State' S B) (c : B -> State' S C) : ((a >>= b) >>= c) = (a >>= \lam x => b x >>= c) => {?}
+  | >>= {A B : \Set} (x : State' S A) (f : A -> State' S B) : State' S B => state' (\lam s => \let
+    | (s', a) => runState' x s
+    \in runState' (f a) s')
+  | id-left {A B : \Set} (a : A) (f : A -> State' S B) : (return a >>= f) = f a =>
+    (return a >>= f) ==< idp >==
+    state' (\lam s => \let | (s', a) => runState' (return a) s \in runState' (f a) s') ==< idp >==
+    state' (\lam s => runState' (f a) s) ==< sym (etaState' (f a)) >==
+    (f a) `qed
+  | id-right {A : \Set} (a : State' S A) : (a >>= return) = a =>
+    (a >>= return) ==< idp >==
+    state' (\lam s => \let | (s', b) => runState' a s \in runState' (return b) s') ==< idp >==
+    state' (\lam s => runState' a s) ==< sym (etaState' a) >==
+    a `qed
+  | >>=-assoc {A B C : \Set} (a : State' S A) (b : A -> State' S B) (c : B -> State' S C) : ((a >>= b) >>= c) = (a >>= \lam x => b x >>= c) => idp
