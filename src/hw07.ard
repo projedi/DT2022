@@ -4,10 +4,38 @@
 
 -- 1. Определите предикат принадлежности элемента списку.
 
-\data In {A : \Type} (a : A) (xs : List A)
+\data In {A : \Type} (a : A) (xs : List A) \elim xs
+  | :: x _ => in-head (a = x)
+  | :: _ xs => in-rec (In a xs)
 
 -- Optional:
 -- 2. Докажите эквивалентность четырех различных определений LessOrEq: lessOrEq, lessOrEq', LessOrEq и LessOrEq'.
+
+\func lessOrEq-1=>2 (n m : Nat) (p : lessOrEq n m) : lessOrEq' n m \with
+  | 0, _, _ => ()
+  | suc n, 0, (_, ())
+  | suc n, suc m, (k, p) => lessOrEq-1=>2 n m (k, pmap pred p)
+
+\func lessOrEq-2=>3 (n m : Nat) (p : lessOrEq' n m) : LessOrEq n m \with
+  | 0, _, _ => z<=_
+  | suc _, 0, ()
+  | suc n, suc m, p => s<=s (lessOrEq-2=>3 n m p)
+
+\func lem-lessOrEq4-suc (n m : Nat) (p : LessOrEq' n m) : LessOrEq' (suc n) (suc m) \with
+  | n, m, <=-refl p => <=-refl (pmap suc p)
+  | n, suc m, <=-suc p => <=-suc (lem-lessOrEq4-suc n m p)
+
+\func lessOrEq-3=>4 (n m : Nat) (p : LessOrEq n m) : LessOrEq' n m \with
+  | 0, 0, _ => <=-refl idp
+  | 0, suc m, _ => <=-suc (lessOrEq-3=>4 0 m z<=_)
+  | suc _, 0, ()
+  | suc n, suc m, s<=s p => lem-lessOrEq4-suc n m (lessOrEq-3=>4 n m p)
+
+\func lessOrEq-4=>1 (n m : Nat) (p : LessOrEq' n m) : lessOrEq n m \with
+  | n, m, <=-refl p => (0, sym p)
+  | n, suc m, <=-suc p => \case lessOrEq-4=>1 n m p \with {
+    | (k, p) => (suc k, pmap suc p)
+  }
 
 -- 3. Определите рефлексивное транзитивное замыкание отношения.
 --    То есть ReflTransClosure R -- это минимальное рефлексивное и транзитивное отношение, содержащее R.
