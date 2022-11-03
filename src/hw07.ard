@@ -1,3 +1,6 @@
+\import Function.Meta
+\import Meta
+\import Paths.Meta
 \import Utils
 \import lect07
 \open Nat(+,*)
@@ -41,31 +44,108 @@
 --    То есть ReflTransClosure R -- это минимальное рефлексивное и транзитивное отношение, содержащее R.
 
 \data ReflTransClosure {A : \Type} (R : A -> A -> \Type) (x y : A)
+  | reflTransClosure-elem (R x y)
+  | reflTransClosure-refl (x = y)
+  | reflTransClosure-trans (z : A) (ReflTransClosure R x z) (ReflTransClosure R z y)
 
 -- 4. Докажите, что если R уже рекфлексивно и транзитивно, то ReflTransClosure R эквивалентно R.
 
+\func ReflTransClosure-lem-fwd {A : \Type} (R : A -> A -> \Type) (refl : \Pi (x : A) -> R x x) (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z)
+  : \Pi (x y : A) -> R x y -> ReflTransClosure R x y
+  => \lam x y r => reflTransClosure-elem r
+
+\func ReflTransClosure-lem-bwd
+  {A : \Type}
+  (R : A -> A -> \Type)
+  (refl : \Pi (x : A) -> R x x)
+  (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z)
+  (x y : A)
+  (r : ReflTransClosure R x y)
+  : R x y \elim r
+  | reflTransClosure-elem r => r
+  | reflTransClosure-refl p => transport (\lam z => R x z) p (refl x)
+  | reflTransClosure-trans z r1 r2 => trans x z y (ReflTransClosure-lem-bwd R refl trans x z r1) (ReflTransClosure-lem-bwd R refl trans z y r2)
+
 \func ReflTransClosure-lem {A : \Type} (R : A -> A -> \Type) (refl : \Pi (x : A) -> R x x) (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z)
   : \Pi (x y : A) -> R x y <-> ReflTransClosure R x y
-  => {?}
+  => \lam x y => (ReflTransClosure-lem-fwd R refl trans x y, ReflTransClosure-lem-bwd R refl trans x y)
 
 -- 5. Определите предикат Sublist xs ys на списках, означающий "список xs является подсписком ys".
 
+\data SubList {A : \Type} (xs : List A) (ys : List A) \elim xs, ys
+  | nil, _ => subList-nil
+  | :: x xs, :: y ys => subList-take (x = y) (SubList xs ys)
+  | xs, :: _ ys => subList-drop (SubList xs ys)
+
 -- 6. Докажите, что Sublist (filter p xs) xs для любых p и xs.
+
+\func subList-filter {A : \Type} (p : A -> Bool) (xs : List A) : SubList (filter p xs) xs \elim xs
+  | nil => subList-nil
+  | :: x xs => cases (p x) \with {
+    | true => subList-take idp (subList-filter p xs)
+    | false => subList-drop (subList-filter p xs)
+  }
 
 -- 7. Определите filter через if, а не через \case.
 --     Докажите для этой версии filter лемму filter-lem.
 
-\func filter' {A : \Type} (p : A -> Bool) (xs : List A) : List A => {?}
+\func filter' {A : \Type} (p : A -> Bool) (xs : List A) : List A \elim xs
+  | nil => nil
+  | :: x xs => if (p x) (x :: filter' p xs) (filter' p xs)
 
-\func filter-lem {A : \Type} (p : A -> Bool) (xs : List A) : LessOrEq (length (filter' p xs)) (length xs) => {?}
+\func filter-lem {A : \Type} (p : A -> Bool) (xs : List A) : LessOrEq (length (filter' p xs)) (length xs) \elim xs
+  | nil => z<=_
+  | :: x xs => cases (p x) \with {
+    | true => s<=s (filter-lem p xs)
+    | false => <=-step-lem (filter-lem p xs)
+  }
 
 -- 8. Закончите определение функции \func BoolFuncLem (f : Bool -> Bool) (x : Bool) : f (f (f x)) = f x из лекции.
+
+\func BoolFuncLem (f : Bool -> Bool) (x : Bool) : f (f (f x)) = f x
+  => \case f true \as b, idp : f true = b, f false \as b', idp : f false = b', \elim x \with {
+    | true, p, true, q, true => rewrite p $ rewrite p $ p
+    | true, p, true, q, false => rewrite q $ rewrite p $ p
+    | true, p, false, q, true => rewrite p $ rewrite p $ p
+    | true, p, false, q, false => rewrite q $ rewrite q $ q
+    | false, p, true, q, true => rewrite p $ rewrite q $ p
+    | false, p, true, q, false => rewrite q $ rewrite p $ q
+    | false, p, false, q, true => rewrite p $ rewrite q $ q
+    | false, p, false, q, false => rewrite q $ rewrite q $ q
+  }
 
 -- 9. Докажите, что предикат isEven разрешим.
 
 \func isEven (n : Nat) => \Sigma (k : Nat) (n = 2 * k)
 
-\func isEven-dec : DecPred isEven => {?}
+\func isEven-0 : isEven 0 => (0, idp)
+
+\func isEven-1 : Not (isEven 1) => \lam i => go i.1 i.2
+\where {
+  \func go (k : Nat) (p : 1 = 2 * k) : Empty \elim k, p
+    | 0, ()
+    | suc k, ()
+}
+
+\func isEven-sucsuc-fwd (n : Nat) (x : isEven n) : isEven (suc (suc n)) => (suc x.1, pmap suc $ pmap suc $ x.2)
+
+\func isEven-sucsuc-bwd (n : Nat) (x : isEven (suc (suc n))) : isEven n => (pred x.1, lem _ _ $ x.2)
+\where {
+  \func lem (n : Nat) (k : Nat) (p : suc (suc n) = 2 * k) : n = 2 * pred k \elim k
+    | 0 => pmap pred $ pmap pred $ p
+    | suc k => pmap pred $ pmap pred $ p
+}
+
+\func isEven-dec : DecPred isEven => \lam n => go n
+\where {
+  \func go (n : Nat) : Decide (isEven n) \elim n
+    | 0 => yes isEven-0
+    | suc 0 => no isEven-1
+    | suc (suc n) => \case (go n) \with {
+      | yes ja => yes $ isEven-sucsuc-fwd n ja
+      | no nein => no (\lam i => nein $ isEven-sucsuc-bwd n i)
+    }
+}
 
 -- 10. Докажите, что если равенство элементов A разрешимо, то и равенство элементов List A тоже разрешимо.
 
