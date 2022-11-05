@@ -150,7 +150,21 @@
 -- 10. Докажите, что если равенство элементов A разрешимо, то и равенство элементов List A тоже разрешимо.
 
 \instance ListEq {A : \Type} (dec : Eq A) : Eq (List A)
-  | decideEq => {?}
+  | decideEq => go dec
+  \where {
+    \func go {A : \Type} (dec : Eq A) (xs : List A) (ys : List A) : Decide (xs = ys) \elim xs, ys
+      | nil, nil => yes idp
+      | nil, :: y ys => no (\case __)
+      | :: x xs, nil => no (\case __)
+      | :: x xs, :: y ys => \case dec.decideEq x y, go dec xs ys \with {
+        | yes ja, yes da => yes $ rewrite ja $ rewrite da idp
+        | yes ja, no net => no (\lam p => net $ pmap (list-rec nil (\lam _ xs _ => xs)) p)
+        | no nein, _ => no (\lam p => nein $ pmap (list-rec x (\lam x _ _ => x)) p)
+      }
+    \func list-rec {A : \Type} {P : \Type} (n : P) (c : A -> List A -> P -> P) (xs : List A) : P \elim xs
+      | nil => n
+      | :: x xs => c x xs (list-rec n c xs)
+  }
 
 -- 11. Докажите, что функции FromBoolToDec и FromDecToBool взаимно обратны.
 
