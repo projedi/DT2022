@@ -1,3 +1,4 @@
+\import Arith.Nat
 \import Data.Bool
 \import Data.List \hiding (headDef)
 \import Function.Meta
@@ -5,6 +6,7 @@
 \import Paths
 \import Paths.Meta
 \import Utils (<->, sym)
+\import lect06 (CommMonoid)
 \import lect08
 \import Order.LinearOrder
 \open LinearOrder
@@ -118,6 +120,34 @@
 
 -- 4. Определите факториал через хвостовую рекурсию.
 --    Докажите, что он равен обычному определению факториала.
+
+\func fac (x : Nat) : Nat \elim x
+  | 0 => 1
+  | suc x => suc x Nat.* fac x
+
+\func *-assoc (x : Nat) (y : Nat) (z : Nat) : x Nat.* (y Nat.* z) = (x Nat.* y) Nat.* z => sym NatSemiring.*-assoc
+
+\lemma *-comm (x : Nat) (y : Nat) : x Nat.* y = y Nat.* x => NatSemiring.*-comm
+
+\func facTR (x : Nat) : Nat => go x 1
+  \where {
+    \func go (x : Nat) (\strict acc : Nat) : Nat \elim x
+      | 0 => acc
+      | suc x => go x (suc x Nat.* acc)
+
+    \func go-step (x : Nat) (y : Nat) (acc : Nat) : go x (y Nat.* acc) = y Nat.* go x acc \elim x
+      | 0 => idp
+      | suc x =>
+        \let
+          | r1 => go-step x (suc x) (y Nat.* acc)
+          | r2 => go-step x (suc x) acc
+          | r3 => go-step x y acc
+        \in rewrite r1 $ rewrite r2 $ rewrite r3 $ rewrite (*-assoc (suc x) y (go x acc)) $ rewrite (*-assoc y (suc x) (go x acc)) $ rewrite (*-comm (suc x) y) idp
+  }
+
+\func facTR=fac (x : Nat) : fac x = facTR x \elim x
+  | 0 => idp
+  | suc x => rewrite (facTR=fac x) $ sym $ facTR.go-step _ _ _
 
 -- 5. Определите функцию, которая проверяет правильность скобочной последовательности.
 --    Докажите ее корректность.
