@@ -1,6 +1,10 @@
 \import Data.Bool
 \import Data.List \hiding (headDef)
-\import Utils (<->)
+\import Function.Meta
+\import Meta
+\import Paths
+\import Paths.Meta
+\import Utils (<->, sym)
 \import lect08
 \import Order.LinearOrder
 \open LinearOrder
@@ -9,6 +13,74 @@
 --    * filter p xs является подсписком xs
 --    * Все элементы filter p xs удовлетворяют предикату p
 --    * Любой подсписок xs с тем же свойством является подсписком filter p xs
+
+\func filter {A : \Type} (p : A -> Bool) (xs : List A) : List A \elim xs
+  | nil => nil
+  | :: x xs => \case (p x) \with {
+    | false => filter p xs
+    | true => x :: filter p xs
+  }
+
+\data SubList {A : \Type} (xs : List A) (ys : List A) \elim xs, ys
+  | nil, _ => subList-nil
+  | :: x xs, :: y ys => subList-take (x = y) (SubList xs ys)
+  | xs, :: _ ys => subList-drop (SubList xs ys)
+  \where {
+    \func subList-tail {A : \Type} {x : A} {xs : List A} {ys : List A} (subList : SubList (x :: xs) ys) : SubList xs ys \elim xs, ys, subList
+      | xs, :: y ys, subList-take p subList => subList-drop subList
+      | xs, :: y ys, subList-drop subList => subList-drop $ subList-tail subList
+
+    \func subList-trans {A : \Type} {xs : List A} {ys : List A} {zs : List A} (fst : SubList xs ys) (snd : SubList ys zs) : SubList xs zs \elim xs, ys, zs, fst, snd
+      | nil, _, _, _, _ => subList-nil
+      | :: x xs, :: y ys, :: z zs, subList-take p fst, subList-take q snd => subList-take (p *> q) $ subList-trans fst snd
+      | :: x xs, :: y ys, :: z zs, subList-take p fst, subList-drop snd =>
+        \let
+          | fst' : SubList (x :: xs) (x :: ys) => subList-take idp fst
+          | snd' : SubList (x :: ys) zs => rewrite p snd
+        \in subList-drop $ subList-trans fst' snd'
+      | xs, :: y ys, :: z zs, subList-drop fst, subList-take q snd => subList-drop $ subList-trans fst snd
+      | xs, :: y ys, :: z zs, subList-drop fst, subList-drop snd => subList-drop $ subList-trans fst (subList-tail snd)
+  }
+
+\func filter-SubList {A : \Type} (p : A -> Bool) (xs : List A) : SubList (filter p xs) xs \elim xs
+  | nil => subList-nil
+  | :: x xs => cases (p x) \with {
+    | false => subList-drop (filter-SubList p xs)
+    | true => subList-take idp (filter-SubList p xs)
+  }
+
+\data AllSatisfy {A : \Type} (p : A -> Bool) (xs : List A) \elim xs
+  | nil => allSatisfy-nil
+  | :: x xs => allSatisfy-cons (So (p x)) (AllSatisfy p xs)
+  \where {
+    \func allSatisfy-tail {A : \Type} {x : A} {xs : List A} {p : A -> Bool} (px : So (p x)) (pxs : AllSatisfy p xs) : AllSatisfy p (x :: xs) \elim xs, px, pxs
+      | nil, px, allSatisfy-nil => allSatisfy-cons px allSatisfy-nil
+      | :: y xs, px, allSatisfy-cons py pxs => allSatisfy-cons px (allSatisfy-cons py pxs)
+  }
+
+\func filter-AllSatisfy {A : \Type} (p : A -> Bool) (xs : List A) : AllSatisfy p (filter p xs) \elim xs
+  | nil => allSatisfy-nil
+  | :: x xs => cases (p x arg addPath) \with {
+    | false, _ => filter-AllSatisfy p xs
+    | true, q => allSatisfy-cons (rewrite q so) (filter-AllSatisfy p xs)
+  }
+
+\func filter-max {A : \Type} (p : A -> Bool) (xs : List A) (ys : List A) (subList : SubList ys xs) (allSatisfy : AllSatisfy p ys) : SubList ys (filter p xs) \elim xs, ys, subList, allSatisfy
+  | _, nil, _, _ => subList-nil
+  | :: x xs, :: y ys, subList-take q subList, allSatisfy-cons s allSatisfy =>
+    cases (p x arg addPath) \with {
+      | false, px =>
+        \let
+          | s' : So (p x) => rewrite (sym q) s
+          | s'' : So false => rewrite (sym px) s'
+        \in So.absurd s''
+      | true, _ => subList-take q $ filter-max p xs ys subList allSatisfy
+    }
+  | :: x xs, :: y ys, subList-drop subList, allSatisfy-cons s allSatisfy =>
+    cases (p x) \with {
+      | false => filter-max p xs (y :: ys) subList $ allSatisfy-cons s allSatisfy
+      | true => subList-drop $ filter-max p _ _ subList $ AllSatisfy.allSatisfy-tail s allSatisfy
+    }
 
 -- 2. Докажите, что Perm l1 l2 тогда и только тогда, когда Insertion.sort l1 = Insertion.sort l2.
 
