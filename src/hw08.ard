@@ -84,6 +84,33 @@
 
 -- 2. Докажите, что Perm l1 l2 тогда и только тогда, когда Insertion.sort l1 = Insertion.sort l2.
 
+\func perm-sym {A : \Type} {xs : List A} {ys : List A} (perm : Perm xs ys) : Perm ys xs \elim xs, ys, perm
+  | nil, nil, perm-nil => perm-nil
+  | :: x xs, :: y ys, perm-cons p perm => perm-cons (sym p) $ perm-sym perm
+  | xs, ys, perm-trans perm1 perm2 => perm-trans (perm-sym perm2) (perm-sym perm1)
+  | :: x (:: x' xs), :: y (:: y' ys), perm-swap p p1 p2 => perm-swap (sym p1) (sym p) (sym p2)
+
+\func perm-lem {A : Dec} (l1 : List A) (l2 : List A) : Perm l1 l2 <-> (Insertion.sort l1 = Insertion.sort l2) =>
+  (fwd l1 l2, bwd l1 l2)
+  \where {
+    \func fwd {A : Dec} (xs : List A) (ys : List A) (perm : Perm xs ys) : Insertion.sort xs = Insertion.sort ys \elim xs, ys, perm
+      | nil, nil, perm-nil => idp
+      | :: x xs, :: y ys, perm-cons p perm => rewrite p $ pmap (Insertion.sort.insert y) $ fwd _ _ perm
+      | xs, ys, perm-trans perm1 perm2 =>
+        \let
+          | fwd1 => fwd _ _ perm1
+          | fwd2 => fwd _ _ perm2
+        \in rewrite fwd1 fwd2
+      | :: x1 (:: x2 xs), :: y1 (:: y2 ys), perm-swap p p1 p2 => rewrite p $ rewrite p1 $ rewrite p2 $ Insertion.sort-perm.insert-comm _ _ _
+
+    \func bwd {A : Dec} (xs : List A) (ys : List A) (p : Insertion.sort xs = Insertion.sort ys) : Perm xs ys =>
+      \let
+        | bwd1 : Perm xs (Insertion.sort xs) => Insertion.sort-perm _
+        | bwd2 : Perm xs (Insertion.sort ys) => rewrite (sym p) bwd1
+        | bwd3 : Perm (Insertion.sort ys) ys => perm-sym $ Insertion.sort-perm _
+      \in perm-trans bwd2 bwd3
+  }
+
 -- 3. Докажите, что спецификация "результат является перестановкой входа и отсортирован" является полной для функции sort.
 
 \func completeness {A : Dec} (sort : List A -> List A) (l : List A) (p : Perm l (sort l)) (s : Sorted (sort l)) : sort l = Insertion.sort l
