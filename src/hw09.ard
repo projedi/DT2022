@@ -1,6 +1,9 @@
 \import Data.List
+\import Function.Meta
 \import Order.LinearOrder
-\import Utils (Maybe, just, maybe, nothing)
+\import Paths.Meta
+\import Utils (Maybe, just, maybe, nothing, pmap)
+\import lect05 (funExt')
 \import lect07(Decide)
 \import lect09
 \open LinearOrder
@@ -15,9 +18,25 @@
     | app t1 t2 => app (t1 >>= k) (t2 >>= k)
     | lam t => lam (t >>= liftM k)
   }
-  | return-left => {?}
-  | return-right => {?}
-  | >>=-assoc => {?}
+  | return-left a f => idp
+  | return-right {A : \Set} (m : Term A) : m >>= return = m \elim m {
+    | app m1 m2 => rewrite (return-right m1) $ rewrite (return-right m2) idp
+    | lam m => rewrite liftM-return $ pmap lam $ return-right m
+    | var _ => idp
+    | unit => idp
+  }
+  | >>=-assoc {A B C : \Set} (m : Term A) (k : A -> Term B) (l : B -> Term C) : (m >>= k) >>= l = m >>= (\lam x => k x >>= l) \elim m {
+    | app m1 m2 => rewrite (>>=-assoc m1 k l) $ rewrite (>>=-assoc m2 k l) idp
+    | lam m => pmap lam $ {?}
+    | var v => idp
+    | unit => idp
+  }
+  \where {
+    \func liftM-return {A : \Set} : liftM var = var {Maybe A} => funExt' (\lam a => \case \elim a \with {
+      | nothing => idp
+      | just _ => idp
+    })
+  }
 
 -- 2. Определите отношение многошаговой редукции на Term.
 
