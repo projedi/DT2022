@@ -2,7 +2,7 @@
 \import Function.Meta
 \import Order.LinearOrder
 \import Paths.Meta
-\import Utils (Maybe, just, maybe, nothing, pmap)
+\import Utils (==<, >==, Maybe, just, maybe, nothing, pmap, qed, sym)
 \import lect05 (funExt')
 \import lect07(Decide)
 \import lect09
@@ -27,7 +27,7 @@
   }
   | >>=-assoc {A B C : \Set} (m : Term A) (k : A -> Term B) (l : B -> Term C) : (m >>= k) >>= l = m >>= (\lam x => k x >>= l) \elim m {
     | app m1 m2 => rewrite (>>=-assoc m1 k l) $ rewrite (>>=-assoc m2 k l) idp
-    | lam m => pmap lam $ {?}
+    | lam m => rewrite (liftM->>= k l) $ pmap lam $ >>=-assoc m (liftM k) (liftM l)
     | var v => idp
     | unit => idp
   }
@@ -35,6 +35,48 @@
     \func liftM-return {A : \Set} : liftM var = var {Maybe A} => funExt' (\lam a => \case \elim a \with {
       | nothing => idp
       | just _ => idp
+    })
+    \func liftM-1 {A B C : \Set} (f : A -> B) (k : B -> Term C) : liftM (\lam x => k (f x)) = (\lam x => liftM k (MaybeMonad.fmap f x)) => funExt' (\lam a => \case \elim a \with {
+      | nothing => idp
+      | just a => idp
+    })
+    \func termMap-comp {A B C : \Set} (f : A -> B) (g : B -> C) (t : Term A) : termMap g (termMap f t) = termMap (\lam x => g (f x)) t \elim t
+      | app t1 t2 => rewrite (termMap-comp f g t1) $ rewrite (termMap-comp f g t2) idp
+      | lam t => rewrite (funExt' (MaybeMonad.fmap-comp f g)) $ pmap lam $ termMap-comp (MaybeMonad.fmap f) (MaybeMonad.fmap g) t
+      | var v => idp
+      | unit => idp
+
+    \func liftM-2 {A B C : \Set} (f : B -> C) (k : A -> Term B) : liftM (\lam x => termMap f (k x)) = (\lam x => termMap (MaybeMonad.fmap f) (liftM k x)) => funExt' (\lam a => \case \elim a \with {
+      | nothing => idp
+      | just a =>
+        liftM (\lam x => termMap f (k x)) (just a) ==< idp >==
+        termMap just (termMap f (k a)) ==< termMap-comp f just (k a) >==
+        termMap (\lam x => just (f x)) (k a) ==< idp >==
+        termMap (\lam x => MaybeMonad.fmap f (just x)) (k a) ==< sym (termMap-comp just (MaybeMonad.fmap f) (k a)) >==
+        termMap (MaybeMonad.fmap f) (termMap just (k a)) ==< idp >==
+        termMap (MaybeMonad.fmap f) (liftM k (just a)) `qed
+    })
+    \func termMap->>=-left {A B C : \Set} (f : A -> B) (t : Term A) (k : B -> Term C) : termMap f t >>= k = t >>= (\lam x => k (f x)) \elim t
+      | app t1 t2 => rewrite (termMap->>=-left f t1 k) $ rewrite (termMap->>=-left f t2 k) idp
+      | lam t => rewrite (liftM-1 f k) $ pmap lam $ termMap->>=-left (MaybeMonad.fmap f) t (liftM k)
+      | var v => idp
+      | unit => idp
+
+    \func termMap->>= {A B C : \Set} (f : B -> C) (t : Term A) (k : A -> Term B) : termMap f (t >>= k) = t >>= (\lam x => termMap f (k x)) \elim t
+      | app t1 t2 => rewrite (termMap->>= f t1 k) $ rewrite (termMap->>= f t2 k) idp
+      | lam t => rewrite (liftM-2 f k) $ pmap lam $ termMap->>= (MaybeMonad.fmap f) t (liftM k)
+      | var v => idp
+      | unit => idp
+
+    \func liftM->>= {A B C : \Set} (k : A -> Term B) (l : B -> Term C) : liftM (\lam x => k x >>= l) = (\lam x => liftM k x >>= liftM l) => funExt' (\lam a => \case \elim a \with {
+      | nothing => idp
+      | just a =>
+        liftM (\lam x => k x >>= l) (just a) ==< idp >==
+        termMap just (k a >>= l) ==< termMap->>= just (k a) l >==
+        (k a >>= (\lam x => termMap just (l x))) ==< idp >==
+        (k a >>= (\lam x => liftM l (just x))) ==< sym (termMap->>=-left just (k a) (liftM l)) >==
+        (termMap just (k a) >>= liftM l) ==< idp >==
+        (liftM k (just a) >>= liftM l) `qed
     })
   }
 
