@@ -2,7 +2,7 @@
 \import Function.Meta
 \import Order.LinearOrder
 \import Paths.Meta
-\import Utils (==<, >==, Maybe, just, maybe, nothing, pmap, qed, sym)
+\import Utils (==<, >==, Either, Maybe, just, maybe, nothing, pmap, qed, sym)
 \import lect05 (funExt')
 \import lect07(Decide)
 \import lect09
@@ -82,7 +82,9 @@
 
 -- 2. Определите отношение многошаговой редукции на Term.
 
-\func Red {V : \Set} (t s : Term V) : \Type => {?}
+\data Red {V : \Set} (t s : Term V) : \Set
+  | red-refl (t = s)
+  | red-step (\Pi (v : Term V) -> Red1 t v -> Red v s)
 
 -- 3. Стратегия редукции -- это функция, которая каждому терму сопоставляет либо некоторый терм, к которому он редуцируется за 1 шаг, либо доказательство, что таких термов нет.
 --    Определите любую стратегию редукции.
