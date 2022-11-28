@@ -4,7 +4,7 @@
 \import Paths.Meta
 \import Utils (==<, >==, Either, Maybe, just, maybe, nothing, pmap, qed, sym)
 \import lect05 (funExt')
-\import lect07(Decide)
+\import lect07(Decide, no, yes)
 \import lect09
 \open LinearOrder
 
@@ -89,7 +89,29 @@
 -- 3. Стратегия редукции -- это функция, которая каждому терму сопоставляет либо некоторый терм, к которому он редуцируется за 1 шаг, либо доказательство, что таких термов нет.
 --    Определите любую стратегию редукции.
 
-\func strategy {V : \Set} (t : Term V) : Decide (\Sigma (s : Term V) (Red1 t s)) => {?}
+\func strategy {V : \Set} (t : Term V) : Decide (\Sigma (s : Term V) (Red1 t s)) \elim t
+  | app (lam t1) t2 => \let
+    | s => t1 lect09.TermMonad.>>= maybe t2 var
+    \in yes (s, redBeta idp idp)
+  | app t1 t2 => \case strategy t1 \with {
+    | yes (s, r) => yes (app s t2, appLeft r idp)
+    | no nein-left => \case strategy t2 \with {
+      | yes (s, r) => yes (app t1 s, appRight idp r)
+      | no nein-right => no (\lam (s, r) => no-app nein-left nein-right s r)
+    }
+  }
+  | lam t => \case strategy t \with {
+    | yes (s, r) => yes (lam s, redLam r)
+    | no nein => no {?}
+  }
+  | var v => no (\lam (s, r) => \case r)
+  | unit => no (\lam (s, r) => \case r)
+  \where {
+    \func no-app {V : \Set} {t1 t2 : Term V} (nein-left : Utils.Not (\Sigma (s : Term V) (Red1 t1 s))) (nein-right : Utils.Not (\Sigma (s : Term V) (Red1 t2 s))) (s : Term V) (r : Red1 (app t1 t2) s)  : Utils.Empty \elim s, r
+      | s, redBeta {g} p p1 => {?}
+      | app s1 s2, appLeft r p => nein-left (s1, r)
+      | app s1 s2, appRight p r => nein-right (s2, r)
+  }
 
 -- 4. Докажите, что подтермы достижимого терма достижимы.
 
